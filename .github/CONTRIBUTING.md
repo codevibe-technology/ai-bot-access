@@ -1,6 +1,6 @@
 # Contributing to ai-bot-access
 
-Thanks for helping. ai-bot-access is a CLI that checks whether AI crawlers can read a site, maintained by [Codevibe](https://codevibe.in).
+Thanks for helping. ai-bot-access is a CLI that checks whether AI crawlers can read a site, maintained by [Codevibe](https://codevibe.in?utm_source=github&utm_medium=repo&utm_campaign=ai-bot-access&utm_content=contributing).
 
 ## Ground rules
 

@@ -45,7 +45,7 @@ AI assistants now answer questions that used to send people to search results. I
 
 Most people check this by reading their **robots.txt**. That is only half the story. Hosting providers, CDNs and firewalls increasingly block AI bots **by user agent**: a `403`, a `429` rate limit, or a "verify you are human" page. robots.txt still says *Allow*, every online checker says you are fine, and the bot is locked out anyway.
 
-We found exactly this on our own site, [codevibe.in](https://codevibe.in). Our robots.txt allowed every AI crawler. Our shared host answered **every GPTBot request with HTTP 429**, including the request for robots.txt itself. A crawler that cannot fetch robots.txt treats the whole site as disallowed, so OpenAI's crawler could not read a single page. The screenshot above is the real output.
+We found exactly this on our own site, [codevibe.in](https://codevibe.in?utm_source=github&utm_medium=readme&utm_campaign=ai-bot-access&utm_content=body). Our robots.txt allowed every AI crawler. Our shared host answered **every GPTBot request with HTTP 429**, including the request for robots.txt itself. A crawler that cannot fetch robots.txt treats the whole site as disallowed, so OpenAI's crawler could not read a single page. The screenshot above is the real output.
 
 `ai-bot-access` makes that second check easy: it asks for your page the way each bot does and compares the answer with what a normal browser gets.
 
@@ -233,12 +233,12 @@ node dist/cli.js https://example.com
 
 ## License
 
-[MIT](LICENSE) © [Codevibe Technology](https://codevibe.in)
+[MIT](LICENSE) © [Codevibe Technology](https://codevibe.in?utm_source=github&utm_medium=readme&utm_campaign=ai-bot-access&utm_content=license)
 
 ---
 
 <p align="center">
-  <a href="https://codevibe.in">
+  <a href="https://codevibe.in?utm_source=github&utm_medium=readme&utm_campaign=ai-bot-access&utm_content=footer-logo">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset=".github/assets/codevibe-logo-light.png">
       <img src=".github/assets/codevibe-logo-dark.png" alt="Codevibe" height="28">
@@ -247,7 +247,7 @@ node dist/cli.js https://example.com
 </p>
 
 <p align="center">
-  Built and maintained by <a href="https://codevibe.in"><b>Codevibe</b></a>, a software development agency in Gurugram, India.<br>
+  Built and maintained by <a href="https://codevibe.in?utm_source=github&utm_medium=readme&utm_campaign=ai-bot-access&utm_content=built-by"><b>Codevibe</b></a>, a software development agency in Gurugram, India.<br>
   We build web apps, mobile apps and AI products for startups, and we wrote this after finding our own site locked out of GPTBot.<br>
-  <a href="https://codevibe.in">Website</a> · <a href="https://codevibe.in/blog">Blog</a> · <a href="mailto:hello@codevibe.in">hello@codevibe.in</a>
+  <a href="https://codevibe.in?utm_source=github&utm_medium=readme&utm_campaign=ai-bot-access&utm_content=footer-links">Website</a> · <a href="https://codevibe.in/blog?utm_source=github&utm_medium=readme&utm_campaign=ai-bot-access&utm_content=footer-blog">Blog</a> · <a href="mailto:hello@codevibe.in">hello@codevibe.in</a>
 </p>
