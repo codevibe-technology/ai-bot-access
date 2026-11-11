@@ -1,6 +1,6 @@
 {
   "name": "ai-bot-access",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Can ChatGPT, Claude, Google and LinkedIn actually read your site? Checks 24 AI, search and link-preview bots against robots.txt and your real server, checks your share preview, verifies bot IPs and reads access logs.",
   "keywords": [
     "robots.txt",

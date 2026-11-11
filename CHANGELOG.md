@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+## [0.2.0] - 2026-11-12
+
 ### Added
 
 - Search engines and link-preview bots: `Googlebot`, `bingbot`, `Applebot`, `DuckDuckBot`, `facebookexternalhit`, `LinkedInBot`, `Twitterbot`, `WhatsApp` and `Slackbot-LinkExpanding` (24 bots in total). Every bot belongs to a group (`ai`, `search`, `social`), and `--bots` accepts group names.
