@@ -10,11 +10,43 @@ jobs:
       matrix:
         node: [18, 20, 22]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
       - run: npm install
       - run: npm run build
       - run: npm test
       - run: node dist/cli.js --list --no-color
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR title follows Conventional Commits
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "PR title: $TITLE"
+          if ! printf '%s' "$TITLE" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .{3,}$' || [ ${#TITLE} -gt 72 ]; then
+            echo "::error::Use a Conventional Commits title, max 72 characters, e.g. 'fix(robots): handle BOM' (see .github/CONTRIBUTING.md)"
+            exit 1
+          fi
+  changelog:
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: CHANGELOG updated for user-facing changes
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if printf '%s' "$TITLE" | grep -Eq '^(feat|fix|perf|revert)'; then
+            if ! git diff --name-only "$BASE"...HEAD | grep -qx 'CHANGELOG.md'; then
+              echo "::error::feat, fix, perf and revert changes need a line under 'Unreleased' in CHANGELOG.md"
+              exit 1
+            fi
+          fi
+          echo "ok"
