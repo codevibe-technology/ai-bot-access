@@ -59,6 +59,14 @@ Pull requests are squash-merged, so the PR title becomes the commit title and th
 
 A maintainer will review it. All changes to `main` go through a reviewed pull request with passing CI.
 
-## Releases
+## Releases (maintainers)
 
-Maintainers publish to npm. Notable changes are listed in [CHANGELOG.md](../CHANGELOG.md).
+Releases are cut from `main` through a pull request, and publishing is automatic:
+
+1. Make sure everything to ship is merged and listed under **Unreleased** in CHANGELOG.md.
+2. From an up-to-date `main`, run `npm run release -- patch` (or `minor`, `major`, or an exact version). This moves the Unreleased notes under the new version, bumps `package.json` and commits `chore(release): vX.Y.Z` on a `release/vX.Y.Z` branch, with the notes as the commit description.
+3. Push the branch and open the PR: `git push -u origin release/vX.Y.Z && gh pr create --fill`.
+4. When CI is green, squash-merge it.
+5. The [Release workflow](workflows/release.yml) builds, tests and publishes to npm with [trusted publishing](https://docs.npmjs.com/trusted-publishers) (no npm token, provenance included), then tags `vX.Y.Z` and creates the GitHub release from the changelog notes.
+
+Versions follow [Semantic Versioning](https://semver.org/): `fix` is a patch, `feat` is a minor, and a breaking change is a major (a minor while the version is below 1.0.0).

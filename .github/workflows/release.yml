@@ -1,0 +1,46 @@
+name: Release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write # create the tag and GitHub release
+  id-token: write # npm trusted publishing (OIDC) and provenance
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Plan
+        id: plan
+        run: node scripts/release-plan.mjs | tee -a "$GITHUB_OUTPUT"
+      - name: Note
+        if: steps.plan.outputs.note != ''
+        run: echo "::notice::${{ steps.plan.outputs.note }}"
+      - name: Build and test
+        if: steps.plan.outputs.publish == 'true'
+        run: |
+          npm install
+          npm run build
+          npm test
+      - name: Publish to npm
+        if: steps.plan.outputs.publish == 'true'
+        # Trusted publishing needs npm 11.5.1 or newer. No token: npm checks this workflow via OIDC.
+        run: |
+          npm install -g npm@^11.5.1
+          npm publish --access public
+      - name: Create GitHub release
+        if: steps.plan.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/changelog-notes.mjs "${{ steps.plan.outputs.version }}" > release-notes.md
+          gh release create "${{ steps.plan.outputs.tag }}" --target "$GITHUB_SHA" --title "${{ steps.plan.outputs.tag }}" --notes-file release-notes.md
