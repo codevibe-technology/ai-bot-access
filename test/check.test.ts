@@ -30,9 +30,24 @@ before(async () => {
       res.writeHead(200, { 'content-type': 'text/plain' });
       return res.end(ROBOTS);
     }
-    if (/ClaudeBot\//.test(ua)) {
+    if (/ClaudeBot\//.test(ua) || /Bytespider/.test(ua)) {
       res.writeHead(403, { 'content-type': 'text/html' });
       return res.end('<html><body>Forbidden</body></html>');
+    }
+    if (/LinkedInBot\//.test(ua)) {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      return res.end('<html><head><title>Home</title></head><body>No tags for this bot</body></html>');
+    }
+    if (req.url === '/og.png') {
+      // 1x1 is enough to read; the size check needs real dimensions, so send a 1200x630 PNG header.
+      const png = Buffer.alloc(33);
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(png, 0);
+      png.writeUInt32BE(13, 8);
+      png.write('IHDR', 12, 'ascii');
+      png.writeUInt32BE(1200, 16);
+      png.writeUInt32BE(630, 20);
+      res.writeHead(200, { 'content-type': 'image/png', 'content-length': String(png.length) });
+      return res.end(png);
     }
     if (/PerplexityBot\//.test(ua)) {
       res.writeHead(403, { 'content-type': 'text/html', 'cf-mitigated': 'challenge' });
@@ -41,7 +56,10 @@ before(async () => {
     const headers: Record<string, string> = { 'content-type': 'text/html' };
     if (/OAI-SearchBot\//.test(ua)) headers['x-robots-tag'] = 'oai-searchbot: noindex';
     res.writeHead(200, headers);
-    res.end('<html><head><title>Home</title><meta name="description" content="hi"></head><body>Hello</body></html>');
+    res.end(
+      '<html><head><title>Home</title><meta name="description" content="hi">' +
+        '<meta property="og:title" content="Home &amp; more"><meta property="og:image" content="/og.png"></head><body>Hello</body></html>',
+    );
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -65,8 +83,13 @@ test('classifies each kind of block', async () => {
 
   assert.equal(r['GPTBot'].verdict, 'robots-unreachable');
   assert.match(r['GPTBot'].reason, /429/);
+  // 403 to a crawler that publishes its IPs: may be fake-bot protection, so it is "to confirm".
   assert.equal(r['ClaudeBot'].verdict, 'blocked-by-server');
   assert.equal(r['ClaudeBot'].page?.status, 403);
+  assert.equal(r['ClaudeBot'].unconfirmed, true);
+  // 403 to a crawler that cannot be verified: a real problem.
+  assert.equal(r['Bytespider'].verdict, 'blocked-by-server');
+  assert.equal(r['Bytespider'].unconfirmed, undefined);
   assert.equal(r['PerplexityBot'].verdict, 'challenged');
   assert.equal(r['CCBot'].verdict, 'blocked-by-robots');
   assert.match(r['CCBot'].reason, /User-agent: CCBot/);
@@ -79,7 +102,27 @@ test('classifies each kind of block', async () => {
   assert.match(r['OAI-SearchBot'].reason, /noindex/);
 
   assert.equal(report.summary.problems, 3);
+  assert.equal(report.summary.unconfirmed, 1);
   assert.equal(report.summary['blocked-by-robots'], 1);
+
+  // Link-preview bot that gets a page without og:image while a browser's copy has one.
+  assert.equal(r['LinkedInBot'].verdict, 'allowed');
+  assert.match(r['LinkedInBot'].reason, /no og:image/);
+
+  // Share preview from the browser copy: relative image resolved and measured.
+  assert.equal(report.preview?.tags.title, 'Home & more');
+  assert.equal(report.preview?.image?.width, 1200);
+  assert.equal(report.preview?.image?.height, 630);
+  assert.ok(report.preview?.issues.some((i) => /relative URL/.test(i.message)));
+  assert.ok(report.preview?.issues.some((i) => /twitter:card/.test(i.message)));
+
+  // Fixes: robots.txt, the confirmed refusal, the unconfirmed one and robots.txt rules.
+  const titles = report.fixes.map((f) => f.title).join(' | ');
+  assert.match(titles, /robots\.txt fails for GPTBot/);
+  assert.match(titles, /refuses Bytespider/);
+  assert.match(titles, /Confirm whether the real ClaudeBot/);
+  assert.match(titles, /Blocked on purpose/);
+  assert.ok(report.whereToLook);
 });
 
 test('a missing robots.txt (404) allows every bot', async () => {

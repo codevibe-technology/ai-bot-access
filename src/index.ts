@@ -1,7 +1,15 @@
-export { BOTS, BROWSER_USER_AGENT, selectBots } from './bots.js';
-export type { Bot, BotPurpose } from './bots.js';
+export { BOTS, BROWSER_USER_AGENT, CATEGORY_LABEL, selectBots } from './bots.js';
+export type { Bot, BotCategory, BotPurpose, BotVerification } from './bots.js';
 export { checkAiBotAccess, PROBLEM_VERDICTS } from './check.js';
 export type { BotResult, CheckOptions, PageCheck, Report, RobotsCheck, Verdict, Baseline } from './check.js';
 export { isAllowed, parseRobots, rulesFor } from './robots.js';
 export type { ParsedRobots, RobotsDecision, RobotsGroup, RobotsRule } from './robots.js';
-export { formatReport, formatBotList } from './format.js';
+export { checkPreview, parsePreviewTags, imageSize } from './preview.js';
+export type { PreviewCheck, PreviewImage, PreviewIssue, PreviewTags } from './preview.js';
+export { detectHosting, suggestFixes, whereToFix } from './fixes.js';
+export type { Fix, FixPlan, Hosting } from './fixes.js';
+export { verifyBot, createVerifier, botFromUserAgent, parseIp, parseCidr, parsePrefixList } from './verify.js';
+export type { Resolver, Verifier, VerifierOptions, VerifyInput, VerifyResult, VerifyVerdict } from './verify.js';
+export { analyzeLogs, analyzeLogLines, parseLogLine, AI_REFERRERS } from './logs.js';
+export type { BotTraffic, LogEntry, LogOptions, LogProblem, LogReport } from './logs.js';
+export { formatReport, formatBotList, formatVerify, formatLogReport } from './format.js';

@@ -1,5 +1,7 @@
 import { BROWSER_USER_AGENT, selectBots, type Bot } from './bots.js';
+import { detectHosting, suggestFixes, type Fix, type Hosting } from './fixes.js';
 import { detectChallenge, indexingDirectives, request, type HttpResult } from './http.js';
+import { checkPreview, parsePreviewTags, type PreviewCheck } from './preview.js';
 import { isAllowed, parseRobots, type ParsedRobots, type RobotsDecision } from './robots.js';
 
 export type Verdict =
@@ -36,6 +38,8 @@ export interface PageCheck {
   challenge?: string;
   /** noindex / noai style directives that apply to this bot. */
   directives: string[];
+  /** For link-preview bots: whether the response this bot got carries an og:image. */
+  hasPreviewImage?: boolean;
 }
 
 export interface BotResult {
@@ -46,6 +50,13 @@ export interface BotResult {
   verdict: Verdict;
   /** One-sentence explanation of the verdict. */
   reason: string;
+  /**
+   * True when the block may only hit impostors: the server answers 403 to a crawler
+   * whose operator publishes its IPs, and many firewalls refuse requests that use a
+   * crawler's name from other addresses (which is what this test does). Confirm with
+   * `ai-bot-access logs` or the operator's webmaster tools.
+   */
+  unconfirmed?: boolean;
 }
 
 export interface Baseline {
@@ -58,9 +69,18 @@ export interface Report {
   url: string;
   checkedAt: string;
   baseline: Baseline;
+  /** Host or CDN recognised from the response headers. */
+  hosting?: Hosting;
   sitemaps: string[];
   results: BotResult[];
-  summary: Record<Verdict, number> & { problems: number };
+  /** Share preview (Open Graph / Twitter Card), when checked. */
+  preview?: PreviewCheck;
+  /** Suggested fixes for the problems found. */
+  fixes: Fix[];
+  /** Where to look on the detected host or CDN, when a fix needs it. */
+  whereToLook?: string;
+  /** `problems` counts confirmed problems; `unconfirmed` counts possible fake-bot protection (see BotResult.unconfirmed). */
+  summary: Record<Verdict, number> & { problems: number; unconfirmed: number };
 }
 
 export interface CheckOptions {
@@ -70,13 +90,15 @@ export interface CheckOptions {
   timeoutMs?: number;
   /** Pause between requests so the check itself does not trip rate limits. Default 250 ms. */
   delayMs?: number;
+  /** Check the share preview (og:title, og:image...). Default true. */
+  preview?: boolean;
   /** Called after each bot is checked, for progress output. */
   onResult?: (result: BotResult) => void;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function toPage(r: HttpResult, token: string): PageCheck {
+function toPage(r: HttpResult, token: string, preview = false): PageCheck {
   return {
     status: r.status,
     finalUrl: r.finalUrl,
@@ -84,8 +106,11 @@ function toPage(r: HttpResult, token: string): PageCheck {
     error: r.error,
     challenge: detectChallenge(r),
     directives: r.received ? indexingDirectives(r, token) : [],
+    hasPreviewImage: preview && r.received ? Boolean(parsePreviewTags(r.body).image) : undefined,
   };
 }
+
+const PAGE_BYTES = 1024 * 1024;
 
 function robotsState(r: HttpResult): RobotsCheck['state'] {
   if (!r.received) return 'unreachable';
@@ -113,7 +138,7 @@ export async function checkAiBotAccess(target: string, options: CheckOptions = {
   const bots = selectBots(options.bots);
 
   // Baseline: what a normal browser gets.
-  const basePageRaw = await request(pageUrl, { userAgent: BROWSER_USER_AGENT, timeoutMs, browserHeaders: true });
+  const basePageRaw = await request(pageUrl, { userAgent: BROWSER_USER_AGENT, timeoutMs, browserHeaders: true, maxBytes: PAGE_BYTES });
   await sleep(delayMs);
   const baseRobotsRaw = await request(robotsUrl, { userAgent: BROWSER_USER_AGENT, timeoutMs, browserHeaders: true });
   const baseRobotsState = robotsState(baseRobotsRaw);
@@ -125,6 +150,8 @@ export async function checkAiBotAccess(target: string, options: CheckOptions = {
     robots: { url: robotsUrl, status: baseRobotsRaw.status, error: baseRobotsRaw.error, state: baseRobotsState },
   };
   const baselineOk = basePageRaw.received && (basePageRaw.status ?? 0) < 400 && !baseline.page.challenge;
+  const hosting = basePageRaw.received ? detectHosting(basePageRaw.headers) : undefined;
+  const basePreviewImage = baselineOk ? Boolean(parsePreviewTags(basePageRaw.body).image) : false;
 
   const results: BotResult[] = [];
   for (const bot of bots) {
@@ -148,10 +175,11 @@ export async function checkAiBotAccess(target: string, options: CheckOptions = {
     let page: PageCheck | undefined;
     if (bot.fetches) {
       await sleep(delayMs);
-      page = toPage(await request(pageUrl, { userAgent: bot.userAgent, timeoutMs }), bot.token);
+      const social = bot.category === 'social';
+      page = toPage(await request(pageUrl, { userAgent: bot.userAgent, timeoutMs, maxBytes: social ? PAGE_BYTES : undefined }), bot.token, social);
     }
 
-    const result = decide(bot, robots, page, baseline, baselineOk);
+    const result = decide(bot, robots, page, baseline, baselineOk, basePreviewImage);
     results.push(result);
     options.onResult?.(result);
   }
@@ -164,23 +192,52 @@ export async function checkAiBotAccess(target: string, options: CheckOptions = {
     'robots-unreachable': 0,
     error: 0,
     problems: 0,
+    unconfirmed: 0,
   } as Report['summary'];
   for (const r of results) {
     summary[r.verdict]++;
-    if (PROBLEM_VERDICTS.includes(r.verdict)) summary.problems++;
+    if (r.unconfirmed) summary.unconfirmed++;
+    else if (PROBLEM_VERDICTS.includes(r.verdict)) summary.problems++;
   }
+
+  let preview: PreviewCheck | undefined;
+  if (options.preview !== false && baselineOk) {
+    await sleep(delayMs);
+    preview = await checkPreview(basePageRaw.body, basePageRaw.finalUrl ?? pageUrl, { userAgent: BROWSER_USER_AGENT, timeoutMs });
+  }
+
+  const plan = suggestFixes({
+    hosting,
+    robotsUnreachable: results.filter((r) => r.verdict === 'robots-unreachable').map((r) => r.bot),
+    blockedByServer: results.filter((r) => r.verdict === 'blocked-by-server').map((r) => ({ bot: r.bot, status: r.page?.status, unconfirmed: r.unconfirmed })),
+    challenged: results.filter((r) => r.verdict === 'challenged').map((r) => ({ bot: r.bot, challenge: r.page?.challenge })),
+    robotsBlocked: results
+      .filter((r) => r.verdict === 'blocked-by-robots')
+      .map((r) => ({ bot: r.bot, line: r.robots.decision?.rule?.line, pattern: r.robots.decision?.rule?.pattern, byToken: r.robots.decision?.matchedBy === 'token' })),
+  });
 
   return {
     url: pageUrl,
     checkedAt: new Date().toISOString(),
     baseline,
+    hosting,
     sitemaps: baseParsed?.sitemaps ?? [],
     results,
+    preview,
+    fixes: plan.fixes,
+    whereToLook: plan.whereToLook,
     summary,
   };
 }
 
-function decide(bot: Bot, robots: RobotsCheck, page: PageCheck | undefined, baseline: Baseline, baselineOk: boolean): BotResult {
+function decide(
+  bot: Bot,
+  robots: RobotsCheck,
+  page: PageCheck | undefined,
+  baseline: Baseline,
+  baselineOk: boolean,
+  basePreviewImage = false,
+): BotResult {
   const base = { bot, robots, page };
 
   if (robots.state === 'unreachable') {
@@ -190,7 +247,9 @@ function decide(bot: Bot, robots: RobotsCheck, page: PageCheck | undefined, base
       verdict: 'robots-unreachable',
       reason: forEveryone
         ? `robots.txt fails for everyone (${describeStatus(robots)}), so well-behaved crawlers treat the whole site as disallowed.`
-        : `robots.txt answers ${bot.token} with ${describeStatus(robots)} but a browser with ${describeStatus(baseline.robots)}; crawlers treat that as "disallow everything".`,
+        : robots.status !== undefined
+          ? `robots.txt answers ${bot.token} with HTTP ${robots.status} but a browser with ${describeStatus(baseline.robots)}; crawlers treat that as "disallow everything".`
+          : `robots.txt fails for ${bot.token} (${robots.error ?? 'no response'}) but works for a browser; crawlers treat that as "disallow everything".`,
     };
   }
 
@@ -200,7 +259,9 @@ function decide(bot: Bot, robots: RobotsCheck, page: PageCheck | undefined, base
     return {
       ...base,
       verdict: 'blocked-by-robots',
-      reason: `Disallowed by ${where}${rule ? ` (line ${rule.line}: Disallow: ${rule.pattern})` : ''}.`,
+      reason: `Disallowed by ${where}${rule ? ` (line ${rule.line}: Disallow: ${rule.pattern})` : ''}${
+        bot.honoursRobots === true ? '' : `; ${bot.token} does not always follow robots.txt, so it may fetch the page anyway`
+      }.`,
     };
   }
 
@@ -221,15 +282,22 @@ function decide(bot: Bot, robots: RobotsCheck, page: PageCheck | undefined, base
     if (!baselineOk && baseline.page.status === s) {
       return { ...base, verdict: 'allowed', reason: `The page returns HTTP ${s} for everyone, not only for bots.` };
     }
+    const unconfirmed = s === 403 && Boolean(bot.verify);
     return {
       ...base,
       verdict: 'blocked-by-server',
-      reason: `robots.txt allows ${bot.token}, but the server answers it with HTTP ${s} while a browser gets ${describeStatus(baseline.page)}.`,
+      unconfirmed: unconfirmed || undefined,
+      reason: unconfirmed
+        ? `The server answers ${bot.token} with HTTP ${s} (a browser gets ${describeStatus(baseline.page)}). Often this is fake-bot protection: the test uses ${bot.token}'s name from an address ${bot.operator} does not use. Confirm in your access log.`
+        : `robots.txt allows ${bot.token}, but the server answers it with HTTP ${s} while a browser gets ${describeStatus(baseline.page)}.`,
     };
   }
 
   const notes: string[] = [];
   if (page.directives.length) notes.push(`page says ${page.directives.join(', ')} for this bot`);
+  if (bot.category === 'social' && basePreviewImage && page.hasPreviewImage === false) {
+    notes.push(`the page ${bot.token} gets has no og:image, although a browser's copy does`);
+  }
   if (page.finalUrl && baseline.page.finalUrl && page.finalUrl !== baseline.page.finalUrl) {
     notes.push(`redirected to ${page.finalUrl} (a browser lands on ${baseline.page.finalUrl})`);
   }

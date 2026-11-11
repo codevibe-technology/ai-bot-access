@@ -11,6 +11,8 @@ export interface HttpResult {
   headers: Record<string, string>;
   /** First part of the body (up to `maxBytes`), decoded as UTF-8. */
   body: string;
+  /** The same bytes, undecoded, when `raw` is set. */
+  bytes?: Uint8Array;
   /** Network or timeout error message when no response was received. */
   error?: string;
 }
@@ -20,15 +22,29 @@ export interface RequestOptions {
   timeoutMs: number;
   maxBytes?: number;
   browserHeaders?: boolean;
+  /** Accept header. Defaults to an HTML-first value. */
+  accept?: string;
+  /** Also return the raw bytes (for images). */
+  raw?: boolean;
+  /** Retry once when no response arrives. Default true. */
+  retry?: boolean;
 }
 
 const DEFAULT_MAX_BYTES = 64 * 1024;
 
+/** Like `requestOnce`, but retries once when no response arrives (timeouts, resets): one slow answer is not a block. */
 export async function request(url: string, opts: RequestOptions): Promise<HttpResult> {
+  const first = await requestOnce(url, opts);
+  if (first.received || opts.retry === false) return first;
+  const second = await requestOnce(url, opts);
+  return second.received ? second : { ...second, ms: first.ms + second.ms };
+}
+
+export async function requestOnce(url: string, opts: RequestOptions): Promise<HttpResult> {
   const started = Date.now();
   const headers: Record<string, string> = {
     'user-agent': opts.userAgent,
-    accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    accept: opts.accept ?? 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   };
   if (opts.browserHeaders) headers['accept-language'] = 'en-US,en;q=0.9';
 
@@ -38,7 +54,8 @@ export async function request(url: string, opts: RequestOptions): Promise<HttpRe
       redirect: 'follow',
       signal: AbortSignal.timeout(opts.timeoutMs),
     });
-    const body = await readSome(res, opts.maxBytes ?? DEFAULT_MAX_BYTES);
+    const bytes = await readSome(res, opts.maxBytes ?? DEFAULT_MAX_BYTES);
+    const body = opts.raw ? '' : new TextDecoder('utf-8', { fatal: false }).decode(bytes);
     const out: Record<string, string> = {};
     res.headers.forEach((v, k) => {
       out[k.toLowerCase()] = v;
@@ -52,6 +69,7 @@ export async function request(url: string, opts: RequestOptions): Promise<HttpRe
       ms: Date.now() - started,
       headers: out,
       body,
+      bytes: opts.raw ? bytes : undefined,
     };
   } catch (err) {
     const e = err as Error & { cause?: { code?: string; message?: string } };
@@ -63,8 +81,8 @@ export async function request(url: string, opts: RequestOptions): Promise<HttpRe
   }
 }
 
-async function readSome(res: Response, maxBytes: number): Promise<string> {
-  if (!res.body) return '';
+async function readSome(res: Response, maxBytes: number): Promise<Uint8Array> {
+  if (!res.body) return new Uint8Array(0);
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -88,7 +106,7 @@ async function readSome(res: Response, maxBytes: number): Promise<string> {
     offset += take;
     if (offset >= buf.byteLength) break;
   }
-  return new TextDecoder('utf-8', { fatal: false }).decode(buf);
+  return buf;
 }
 
 /**
