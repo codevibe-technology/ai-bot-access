@@ -1,0 +1,30 @@
+name: Bug report
+description: Something is not working as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The command you ran, e.g. npx ai-bot-access https://example.com --bots openai
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ai-bot-access version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "Node.js version, OS"

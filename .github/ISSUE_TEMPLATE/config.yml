@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security issue
+    url: https://github.com/codevibe-technology/ai-bot-access/security/advisories/new
+    about: Please report security problems privately.
+  - name: Hire Codevibe
+    url: https://codevibe.in
+    about: Need help with SEO, AI search visibility or site speed? Talk to the team behind this project.

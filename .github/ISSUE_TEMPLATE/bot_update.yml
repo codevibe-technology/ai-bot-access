@@ -1,0 +1,30 @@
+name: Add or update a bot
+description: A crawler is missing, or its user agent or purpose changed
+labels: [bot-list]
+body:
+  - type: input
+    id: token
+    attributes:
+      label: robots.txt token
+      placeholder: "ExampleBot"
+    validations:
+      required: true
+  - type: input
+    id: ua
+    attributes:
+      label: Full user agent
+      placeholder: "Mozilla/5.0 (compatible; ExampleBot/1.0; +https://example.com/bot)"
+  - type: input
+    id: docs
+    attributes:
+      label: Link to the operator's documentation
+      description: We only add bots documented by their operator.
+    validations:
+      required: true
+  - type: dropdown
+    id: purpose
+    attributes:
+      label: Purpose
+      options: [training, search, user-fetch, robots-only]
+    validations:
+      required: true
