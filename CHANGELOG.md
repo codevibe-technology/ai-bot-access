@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+### Added
+
+- Automated releases: merging a `chore(release)` pull request publishes to npm with provenance and creates the GitHub release from these notes.
+
 ### Changed
 
 - CI runs on `actions/checkout` and `actions/setup-node` v7.
