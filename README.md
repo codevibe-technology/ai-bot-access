@@ -17,6 +17,11 @@
 </p>
 
 <p align="center">
+  <a href="https://codevibe.in/tools/ai-bot-access?utm_source=github&utm_medium=readme&utm_campaign=ai-bot-access&utm_content=video#video"><img src=".github/assets/demo.gif" alt="30-second preview: robots.txt allows GPTBot but the server answers 429; ai-bot-access checks 24 bots on codevibe.in and finds GPTBot locked out" width="100%"></a><br>
+  <sub>▶ <a href="https://codevibe.in/tools/ai-bot-access?utm_source=github&utm_medium=readme&utm_campaign=ai-bot-access&utm_content=video#video">Watch the full 95-second video with sound</a></sub>
+</p>
+
+<p align="center">
   <a href="#quick-start">Quick start</a> ·
   <a href="#why-this-exists">Why</a> ·
   <a href="#what-it-checks">What it checks</a> ·
