@@ -1,6 +1,6 @@
 # Contributing to ai-bot-access
 
-Thanks for helping. ai-bot-access is a CLI that checks whether AI crawlers can read a site, maintained by [Codevibe](https://codevibe.in?utm_source=github&utm_medium=repo&utm_campaign=ai-bot-access&utm_content=contributing).
+Thanks for helping. ai-bot-access is a CLI that checks whether AI crawlers, search engines and link-preview bots can read a site, maintained by [Codevibe](https://codevibe.in?utm_source=github&utm_medium=repo&utm_campaign=ai-bot-access&utm_content=contributing).
 
 ## Ground rules
 
@@ -19,11 +19,11 @@ npm test
 npm run build
 ```
 
-`npm test` runs the robots.txt parser tests and a local HTTP server that simulates each kind of block.
+`npm test` runs the robots.txt parser, IP verification, log parsing and share-preview tests, plus a local HTTP server that simulates each kind of block. Tests never reach the network: IP lists and DNS are faked.
 
 ## Updating the bot list
 
-The bot list lives in [`src/bots.ts`](../src/bots.ts). Every entry needs a link to the operator's own documentation in `docs`. Please do not add a bot based on a third-party list alone: operators change user agents, and the tool is only as good as its sources.
+The bot list lives in [`src/bots.ts`](../src/bots.ts). Every entry needs a link to the operator's own documentation in `docs`, a `category` (`ai`, `search` or `social`), and, when the operator publishes them, its IP lists or reverse-DNS domains in `verify`. Please do not add a bot or an IP source based on a third-party list alone: operators change user agents and addresses, and the tool is only as good as its sources.
 
 ## Commit messages
 

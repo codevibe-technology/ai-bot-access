@@ -1,7 +1,7 @@
 {
   "name": "ai-bot-access",
   "version": "0.1.0",
-  "description": "Check whether AI crawlers (GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot and more) can actually read your pages: robots.txt rules plus a real request with each bot's user agent.",
+  "description": "Can ChatGPT, Claude, Google and LinkedIn actually read your site? Checks 24 AI, search and link-preview bots against robots.txt and your real server, checks your share preview, verifies bot IPs and reads access logs.",
   "keywords": [
     "robots.txt",
     "ai crawlers",
@@ -9,6 +9,15 @@
     "claudebot",
     "perplexitybot",
     "oai-searchbot",
+    "googlebot",
+    "bingbot",
+    "linkedinbot",
+    "open graph",
+    "og image",
+    "link preview",
+    "verify bot ip",
+    "fake bots",
+    "access logs",
     "geo",
     "aeo",
     "seo",
@@ -18,7 +27,7 @@
   ],
   "license": "MIT",
   "author": "Codevibe Technology <hello@codevibe.in> (https://codevibe.in)",
-  "homepage": "https://github.com/codevibe-technology/ai-bot-access#readme",
+  "homepage": "https://codevibe.in/tools/ai-bot-access?utm_source=npm&utm_medium=package&utm_campaign=ai-bot-access",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/codevibe-technology/ai-bot-access.git"
@@ -34,6 +43,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./verify": {
+      "types": "./dist/verify.d.ts",
+      "import": "./dist/verify.js"
     },
     "./package.json": "./package.json"
   },
